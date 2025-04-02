@@ -1,0 +1,2 @@
+#!/bin/sh
+sed -e '/FONT=/a FONT="ter-132n"' -i /etc/rc.conf

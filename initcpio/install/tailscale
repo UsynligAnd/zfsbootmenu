@@ -1,0 +1,50 @@
+#!/bin/bash
+
+build() {
+	# are we even needed?
+	if [ ! -r "/etc/tailscale/tailscaled.state" ] || [ ! -s "/etc/tailscale/tailscaled.state" ]; then
+		echo "mkinitcpio-tailscale has not been set up; run mkinitcpio-tailscale-setup first; abort"
+		return 0
+	fi
+
+	# tailscale needs iptables
+	add_binary iptables
+	add_binary ip6tables
+	add_full_dir /usr/lib/xtables
+	add_all_modules netfilter
+
+	add_binary killall
+
+	add_binary tailscaled
+	add_binary tailscale
+	add_file /etc/tailscale/tailscaled.state
+	[ -r "/etc/tailscale/tailscaled.conf" ] && add_file /etc/tailscale/tailscaled.conf
+	add_module tun
+
+	add_runscript
+}
+
+help() {
+	cat <<-HELPEOF
+	This hook connects the early userspace environment to a Tailscale
+	network to allow for remote unlocking of disks and similar
+	functionality. This hook requires that networking be set up using
+	another mkinitcpio module, like 'net' from mkinitcpio-nfs-utils.
+	An SSH server can come from another mkinitcpio module, like
+	'dropbear' from mkinitcpio-dropbear, or the built-in Tailscale SSH
+	server.
+
+	Configuration can be done in /etc/tailscale/tailscaled.conf, which is
+	sourced as a busybox ash shell script.
+
+	  tailscale_port:    argument to -port (default: 41641)
+	  tailscaled_args:   other args to pass to tailscaled
+	  tailscale_timeout: argument to --timeout (default: 20s)
+	  tailscale_args:    other args to pass to tailscale up
+	
+	See the README for security considerations and full setup instructions.
+	https://github.com/classabbyamp/mkinitcpio-tailscale
+	HELPEOF
+}
+
+# vim: noexpandtab
