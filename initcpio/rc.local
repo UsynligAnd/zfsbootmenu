@@ -7,11 +7,11 @@ ip link show dev eth0 >/dev/null 2>&1 || exit
 ip link set dev eth0 up
 
 # Configure a static address for this host
-ip addr add 192.168.1.2/24 brd + dev eth0
-ip route add default via 192.168.1.1
+ip addr add 10.0.0.230/24 brd + dev eth0
+ip route add default via 10.0.0.1
 
 # Add some name servers
 cat > /etc/resolv.conf <<EOF
 nameserver 1.1.1.1
-nameserver 8.8.8.8
+nameserver 1.0.0.1
 EOF
