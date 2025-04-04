@@ -203,7 +203,13 @@ dpkg-reconfigure locales tzdata keyboard-configuration console-setup
 
 #### Add additional user packages
 ```bash
-apt install nano net-tools bind9-dnsutils htop btop podman network-manager
+apt install nano net-tools bind9-dnsutils htop btop network-manager openssh-server
+```
+### Add user and set passwd
+```bash
+useradd -m -G sudo -s /bin/bash -u 1000 jakob
+passwd jakob
+echo "jakob ALL=(ALL) NOPASSWD: ALL" | sudo tee /etc/sudoers.d/sudoers
 ```
 ### Add netplan config
 ```bash
