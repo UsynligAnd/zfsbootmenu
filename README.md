@@ -205,6 +205,17 @@ dpkg-reconfigure locales tzdata keyboard-configuration console-setup
 ```bash
 apt install nano net-tools bind9-dnsutils htop btop podman network-manager
 ```
+### Add netplan config
+```bash
+cat <<EOF > /etc/netplan/00-config.yaml
+network:
+  version: 2
+  ethernets:
+    eth0:
+      dhcp4: true
+EOF
+chmod 0600 /etc/netplan/00-config.yaml
+```
 
 ## ZFS Configuration
 #### Install required packages
