@@ -210,6 +210,7 @@ apt install nano net-tools bind9-dnsutils htop btop podman network-manager
 cat <<EOF > /etc/netplan/00-config.yaml
 network:
   version: 2
+  renderer: NetworkManager
   ethernets:
     eth0:
       dhcp4: true
