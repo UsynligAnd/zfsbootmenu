@@ -202,11 +202,48 @@ apt install --no-install-recommends linux-generic locales keyboard-configuration
 dpkg-reconfigure locales tzdata keyboard-configuration console-setup
 ```
 
-#### Add additional user packages
+#### Add additional packages for later
 ```bash
-apt install nano net-tools bind9-dnsutils htop btop network-manager git rsync make
+apt install nano net-tools bind9-dnsutils htop btop network-manager git rsync make openssh-server dosfstools zfs-initramfs zfsutils-linux efibootmgr
 ```
 
+## Setup networking
+Create netplan config using either static or dynamic ip (dhcp). Use the correct addresses for your environment
+```bash
+touch /etc/netplan/01-netcfg.yaml
+chmod 0600 /etc/netplan/01-netcfg.yaml
+nano /etc/netplan/01-netcfg.yaml
+```
+* Static IP
+  ```yaml
+  network:
+    version: 2
+    renderer: NetworkManager
+    ethernets:
+      eth0:
+        dhcp4: no
+        addresses:
+          - 10.0.0.x/24
+        nameservers:
+          addresses:
+            - 1.1.1.1
+            - 1.0.0.1
+        routes:
+          - to: default
+            via: 10.0.0.1
+            metric: 100
+            on-link: true
+            advertised-mss: 1400
+  ```
+* Dynamic IP
+  ```yaml
+  network:
+    version: 2
+    renderer: NetworkManager
+    ethernets:
+      eth0:
+        dhcp4: yes
+  ```
 ## Docker
 Now let's setup docker
 ### Add Docker's official GPG key:
@@ -225,17 +262,47 @@ echo \
   sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 sudo apt-get update
 ```
-### Install docker packages and test
+### Install docker packages
 ```bash
 sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-sudo docker run --rm hello-world
 ```
 
-## ZFS Configuration
-#### Install required packages
+### Add initial user
+Set usernam var
 ```bash
-apt install dosfstools zfs-initramfs zfsutils-linux
+USER_NAME=<username>
 ```
+```bash
+useradd -md /home/$USER_NAME -U -s /bin/bash -G sudo,docker $USER_NAME
+```
+
+#### (Optional) Add user to nopasswd sudoers
+```bash
+echo "${USER_NAME} ALL=(ALL) NOPASSWD: ALL" | tee /etc/sudoers.d/sudoers
+```
+
+### Add ssh public keys
+Use one of the following methods
+* Add public keys from github handle
+  ```bash
+  su $USER_NAME
+  ssh-import-id-gh <Github Handle>
+  exit
+  ```
+* Or set manually in `~/.ssh/authorized_keys`
+  ```bash
+  su $USER_NAME
+  nano ~/.ssh/authorized_keys
+  exit
+  ```
+### Harden ssh server
+```bash
+cat <<EOF > /etc/ssh/sshd_config.d/ssh_hardening
+PermitRootLogin no
+PasswordAuthentication no
+EOF
+```
+## ZFS Configuration
 
 #### Enable systemd ZFS services
 ```bash
@@ -272,37 +339,18 @@ mkdir -p /boot/efi
 mount /boot/efi
 ```
 
-## Install ZFSBootMenu
-
-## Build custom zfs boot menu
-Install required packages
+#### Install ZFSBootMenu
+Because of chroot limitations, install base zfsbootmenu image first.
 ```bash
-curl -L https://github.com/UsynligAnd/zfsbootmenu/archive/main.tar.gz | tar -zxvf - -C /tmp
-mv /tmp/zfsbootmenu-main /etc/zfsbootmenu
-```
-Add tailscale auth key to `/tmp/zbm-ts-authkey`
-```bash
-nano /tmp/zbm-ts-authkey
-```
-
-### Run build process
-```bash
-/etc/zfsbootmenu/build.sh
-```
-### Copy EFI files
-```bash
-cp /etc/zfsbootmenu/output/zfsbootmenu.EFI /boot/efi/EFI/ZBM/zfsbootmenu.EFI
+mkdir -p /boot/efi/EFI/ZBM
+curl -o /boot/efi/EFI/ZBM/zfsbootmenu.EFI -L https://get.zfsbootmenu.org/efi
 cp /boot/efi/EFI/ZBM/zfsbootmenu.EFI /boot/efi/EFI/ZBM/zfsbootmenu-backup.EFI
 ```
-
-
 #### Configure EFI boot entries
 ```bash
 mount -t efivarfs efivarfs /sys/firmware/efi/efivars
 ```
-```bash
-apt install efibootmgr
-```
+
 ```bash
 efibootmgr -c -d "$BOOT_DISK1" -p "$BOOT_PART1" \
   -L "ZFSBootMenu (Backup)" \
@@ -325,4 +373,49 @@ umount -n -R /mnt
 ```bash
 zpool export zroot
 reboot
+```
+
+
+## Build custom zfs boot menu
+After first boot we are ready to build our own image with tailscale ++
+### Open ssh connection to the server
+```bash
+ssh <username>@<server_ip>
+```
+### Enter a root shell
+```bash
+sudo -i
+```
+
+### Download custom zfsbootmenu to /etc/zfsbootmenu 
+```bash
+curl -L https://github.com/UsynligAnd/zfsbootmenu/archive/main.tar.gz | tar -zxvf - -C /tmp
+mv /tmp/zfsbootmenu-main /etc/zfsbootmenu
+```
+Add tailscale auth key to `/tmp/zbm-ts-authkey`
+```bash
+nano /tmp/zbm-ts-authkey
+```
+### Modify `/etc/zfsbootmenu/posthooks/esp-sync.sh` if needed (nvme/sata drives)
+* SATA:
+  ```bash
+  ESPS=(
+    "/dev/sdb1"
+  )
+  ```
+* NVMe:
+  ```bash
+  ESPS=(
+    "/dev/nvme1n1p1"
+  )
+  ```
+### Run build process
+```bash
+cd /etc/zfsbootmenu
+./zbm-builder.sh
+```
+### Copy EFI files
+```bash
+cp /etc/zfsbootmenu/output/zfsbootmenu.EFI /boot/efi/EFI/ZBM/zfsbootmenu.EFI
+cp /boot/efi/EFI/ZBM/zfsbootmenu.EFI /boot/efi/EFI/ZBM/zfsbootmenu-backup.EFI
 ```
