@@ -11,6 +11,20 @@ Confirm EFI support:
 dmesg | grep -i efivars
 ```
 
+Install openssh and set passwd for ubuntu user
+```bash
+apt install openssh-server
+passwd ubuntu
+```
+
+#### Continue from ssh connection
+```bash
+ssh ubuntu@server_dhcp_ip
+```
+Enter root shell
+```bash
+sudo -i
+```
 
 #### Source `/etc/os-release`
 The file /etc/os-release defines variables that describe the running distribution. In particular, the $ID variable defined within can be used as a short name for the filesystem that will hold this installation.
@@ -212,37 +226,45 @@ Create netplan config using either static or dynamic ip (dhcp). Use the correct 
 ```bash
 touch /etc/netplan/01-netcfg.yaml
 chmod 0600 /etc/netplan/01-netcfg.yaml
-nano /etc/netplan/01-netcfg.yaml
 ```
-* Static IP
-  ```yaml
+* Static IP:
+  ```bash
+  ifname=$(ip -o link show | sed -rn '/^[0-9]+: en/{s/.: ([^:]*):.*/\1/p}')
+  ip=10.0.0.x
+  gateway=10.0.0.1
+  ```
+  ```bash
+  cat <<EOF > /etc/netplan/01-netcfg.yaml
   network:
     version: 2
     renderer: NetworkManager
     ethernets:
-      eth0:
+      ${ifname}:
         dhcp4: no
         addresses:
-          - 10.0.0.x/24
+          - ${ip}/24
         nameservers:
           addresses:
             - 1.1.1.1
             - 1.0.0.1
         routes:
           - to: default
-            via: 10.0.0.1
+            via: ${gateway}
             metric: 100
             on-link: true
             advertised-mss: 1400
+  EOF
   ```
 * Dynamic IP
-  ```yaml
+  ```bash
+  cat <<EOF > /etc/netplan/01-netcfg.yaml
   network:
     version: 2
     renderer: NetworkManager
     ethernets:
       eth0:
         dhcp4: yes
+  EOF
   ```
 ## Docker
 Now let's setup docker
