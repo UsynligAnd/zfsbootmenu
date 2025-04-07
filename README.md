@@ -156,6 +156,7 @@ chroot /mnt /bin/bash
 
 ## Basic Ubuntu Configuration
 #### Set a hostname
+Example hostname 'nas'
 ```bash
 echo 'nas' > /etc/hostname
 echo -e '127.0.1.1\tnas' >> /etc/hosts
@@ -265,7 +266,6 @@ mkfs.vfat -F32 "$BOOT_DEVICE2"
 ```bash
 cat << EOF >> /etc/fstab
 $( blkid | grep "$BOOT_DEVICE1" | cut -d ' ' -f 2 ) /boot/efi vfat defaults 0 0
-$( blkid | grep "$BOOT_DEVICE1" | cut -d ' ' -f 2 ) /boot/efi vfat defaults 0 0
 EOF
 
 mkdir -p /boot/efi
@@ -274,106 +274,27 @@ mount /boot/efi
 
 ## Install ZFSBootMenu
 
-## Install ZFSBootMenu from source
+## Build custom zfs boot menu
 Install required packages
 ```bash
-apt install \
-  curl \
-  libsort-versions-perl \
-  libboolean-perl \
-  libyaml-pp-perl \
-  git \
-  fzf \
-  make \
-  mbuffer \
-  kexec-tools \
-  dracut-core \
-  efibootmgr \
-  bsdextrautils
+curl -L https://github.com/UsynligAnd/zfsbootmenu/archive/main.tar.gz | tar -zxvf - -C /tmp
+mv /tmp/zfsbootmenu-main /etc/zfsbootmenu
 ```
-Add tailscale repo
+Add tailscale auth key to `/tmp/zbm-ts-authkey`
 ```bash
-curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/noble.noarmor.gpg | sudo tee /usr/share/keyrings/tailscale-archive-keyring.gpg >/dev/null
-curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/noble.tailscale-keyring.list | sudo tee /etc/apt/sources.list.d/tailscale.list
+nano /tmp/zbm-ts-authkey
 ```
 
-Install tailscale
+### Run build process
 ```bash
-sudo apt-get update
-sudo apt-get install tailscale
+/etc/zfsbootmenu/build.sh
 ```
-Add tailscale auth key to `/tmp/zbm-ts-authkey` and run setup
+### Copy EFI files
 ```bash
-curl -L https://github.com/classabbyamp/mkinitcpio-tailscale/archive/master.tar.gz | tar -zxvf - -C /tmp
-cd /tmp/mkinitcpio-tailscale-master
-make install
-mkinitcpio-tailscale-setup -k /tmp/zbm-ts-authkey
-rm -r /tmp/mkinitcpio-tailscale-master
-```
-If using Tailscale SSH instead of Dropbear, add the necessary flags to /etc/tailscale/tailscaled.conf:
-```bash
-tailscale_args="--ssh"
-```
-```bash
-mkdir -p /usr/local/src/zfsbootmenu
-cd /usr/local/src/zfsbootmenu
-curl -L https://get.zfsbootmenu.org/source | tar -zxv --strip-components=1 -f -
-make core initcpio
+cp /etc/zfsbootmenu/output/zfsbootmenu.EFI /boot/efi/EFI/ZBM/zfsbootmenu.EFI
+cp /boot/efi/EFI/ZBM/zfsbootmenu.EFI /boot/efi/EFI/ZBM/zfsbootmenu-backup.EFI
 ```
 
-Configure generate-zbm by ensuring that the following keys appear in `/etc/zfsbootmenu/config.yaml`:
-```yaml
-Global:
-  ManageImages: true
-  BootMountPoint: /boot/efi
-Components:
-   Enabled: false
-EFI:
-  ImageDir: /boot/efi/EFI/zbm
-  Versions: false
-  Enabled: true
-Kernel:
-  CommandLine: quiet loglevel=0
-```
-
-ZFSBootMenu still expects to use Dracut by default. To override this behavior and instead use mkinitcpio, edit `/etc/zfsbootmenu/config.yaml`
-```yaml
-Global:
-  InitCPIO: true
-```
-#### Enabling Network Access
-```bash
-sed -e '/HOOKS=/a HOOKS+=(net)' -i /etc/zfsbootmenu/mkinitcpio.conf
-```
-Next, add an ip= parameter to ZFSBootMenu's kernel command-line. If you use another boot loader to start ZFSBootMenu, e.g. rEFInd or syslinux, this can be accomplished by configuring that loader. If booting the EFI bundle directly, this can be accomplished by configuring it in `/etc/zfsbootmenu/config.yaml`, for example:
-```yaml
-Kernel:
-  CommandLine: "ro quiet loglevel=0 ip=:::::eth0:dhcp"
-```
-
-## Configuring Dropbear
-First, install `dropbear`, if not already installed.
-To create dedicated host keys in the proper format, decide on a location, for example `/etc/dropbear`, and create the new keys:
-```bash
-mkdir -p /etc/dropbear
-for keytype in rsa ecdsa ed25519; do
-    dropbearkey -t "${keytype}" -f "/etc/dropbear/dropbear_${keytype}_host_key"
-done
-```
-
-First, download and install the mkinitcpio module:
-```bash
-curl -L https://github.com/ahesford/mkinitcpio-dropbear/archive/master.tar.gz | tar -zxvf - -C /tmp
-mkdir -p /etc/zfsbootmenu/initcpio/{install,hooks}
-cp /tmp/mkinitcpio-dropbear-master/dropbear_hook /etc/zfsbootmenu/initcpio/hooks/dropbear
-cp /tmp/mkinitcpio-dropbear-master/dropbear_install /etc/zfsbootmenu/initcpio/install/dropbear
-rm -r /tmp/mkinitcpio-dropbear-master
-```
-Then, enable the `dropbear` module in `/etc/zfsbootmenu/mkinitcpio.conf` by manually appending `dropbear` to the `HOOKS` array.
-
-```bash
-generate-zbm
-```
 
 #### Configure EFI boot entries
 ```bash
@@ -385,11 +306,11 @@ apt install efibootmgr
 ```bash
 efibootmgr -c -d "$BOOT_DISK1" -p "$BOOT_PART1" \
   -L "ZFSBootMenu (Backup)" \
-  -l '\EFI\ZBM\VMLINUZ-BACKUP.EFI'
+  -l '\EFI\ZBM\zfsbootmenu-backup.EFI'
 
 efibootmgr -c -d "$BOOT_DISK1" -p "$BOOT_PART1" \
   -L "ZFSBootMenu" \
-  -l '\EFI\ZBM\VMLINUZ.EFI'
+  -l '\EFI\ZBM\zfsbootmenu.EFI'
 ```
 
 ## Prepare for first boot
@@ -404,38 +325,4 @@ umount -n -R /mnt
 ```bash
 zpool export zroot
 reboot
-```
-
-#### After snapshot
-```bash
-sudo -i
-```
-
-```bash
-source /etc/os-release
-export ID
-```
-
-```bash
-export BOOT_DISK1="/dev/sda"
-export BOOT_PART1="1"
-export BOOT_DEVICE1="${BOOT_DISK1}${BOOT_PART1}"
-export POOL_DISK1="/dev/sda"
-export POOL_PART1="2"
-export POOL_DEVICE1="${POOL_DISK1}${POOL_PART1}"
-export BOOT_DISK2="/dev/sdb"
-export BOOT_PART2="1"
-export BOOT_DEVICE2="${BOOT_DISK2}${BOOT_PART2}"
-export POOL_DISK2="/dev/sdb"
-export POOL_PART2="2"
-export POOL_DEVICE2="${POOL_DISK2}${POOL_PART2}"
-```
-
-#### Chroot into the new OS
-```bash
-mount -t proc proc /mnt/proc
-mount -t sysfs sys /mnt/sys
-mount -B /dev /mnt/dev
-mount -t devpts pts /mnt/dev/pts
-chroot /mnt /bin/bash
 ```
