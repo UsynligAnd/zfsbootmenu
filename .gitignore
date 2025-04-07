@@ -1,3 +1,4 @@
 /output
 /tailscale/*
 !/tailscale/tailscaled.conf
+/hostid
