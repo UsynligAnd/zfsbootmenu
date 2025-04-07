@@ -3,6 +3,7 @@ Global:
   InitCPIOHookDirs:
     - /build/initcpio
     - /usr/lib/initcpio
+  PostHooksDir: /build/posthooks
 Components:
   Enabled: false
 EFI:
@@ -10,4 +11,4 @@ EFI:
   Versions: false
 Kernel:
   Prefix: zfsbootmenu
-  CommandLine: zfsbootmenu ro quiet loglevel=0 nomodeset
+  CommandLine: "zfsbootmenu ro quiet loglevel=0 nomodeset zbm.timeout=20 ip=:::::eth0:dhcp"

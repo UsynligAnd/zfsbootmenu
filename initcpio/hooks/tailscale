@@ -1,4 +1,5 @@
 #!/usr/bin/ash
+# vim: softtabstop=2 shiftwidth=2 expandtab
 
 run_hook() {
 	echo "Starting tailscale"

@@ -1,17 +1,17 @@
 #!/bin/sh
-
-# Don't attempt to configure an interface that does not exist
-ip link show dev eth0 >/dev/null 2>&1 || exit
-
-# Bring up the interface
-ip link set dev eth0 up
-
-# Configure a static address for this host
-ip addr add 10.0.0.230/24 brd + dev eth0
-ip route add default via 10.0.0.1
+# Add local users
+cat > /etc/passwd <<EOF
+root::0:0::/root:/bin/sh
+nobody:x:99:99:Unprivileged User:/dev/null:/bin/false
+EOF
 
 # Add some name servers
 cat > /etc/resolv.conf <<EOF
 nameserver 1.1.1.1
 nameserver 1.0.0.1
 EOF
+
+# Mount devpts
+mkdir -p /dev/pts
+echo "devpts           /dev/pts              devpts  gid=5,mode=620  0 0" >> /etc/fstab
+mount /dev/pts

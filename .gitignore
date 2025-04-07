@@ -1,1 +1,3 @@
-build
+/output
+/tailscale/*
+!/tailscale/tailscaled.conf

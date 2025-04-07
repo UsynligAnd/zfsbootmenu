@@ -203,25 +203,31 @@ dpkg-reconfigure locales tzdata keyboard-configuration console-setup
 
 #### Add additional user packages
 ```bash
-apt install nano net-tools bind9-dnsutils htop btop network-manager openssh-server
+apt install nano net-tools bind9-dnsutils htop btop network-manager git rsync make
 ```
-### Add user and set passwd
+
+## Docker
+Now let's setup docker
+### Add Docker's official GPG key:
 ```bash
-useradd -m -G sudo -s /bin/bash -u 1000 jakob
-passwd jakob
-echo "jakob ALL=(ALL) NOPASSWD: ALL" | sudo tee /etc/sudoers.d/sudoers
+sudo apt-get update
+sudo apt-get install ca-certificates curl
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
 ```
-### Add netplan config
+### Add the repository to Apt sources:
 ```bash
-cat <<EOF > /etc/netplan/00-config.yaml
-network:
-  version: 2
-  renderer: NetworkManager
-  ethernets:
-    eth0:
-      dhcp4: true
-EOF
-chmod 0600 /etc/netplan/00-config.yaml
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+  $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | \
+  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt-get update
+```
+### Install docker packages and test
+```bash
+sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+sudo docker run --rm hello-world
 ```
 
 ## ZFS Configuration

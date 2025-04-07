@@ -1,0 +1,11 @@
+#!/bin/sh
+STATE_FILE=/build/tailscale/tailscaled.state
+
+mkdir -p /etc/tailscale
+if [ -f $STATE_FILE ]; then
+    cp -r /build/tailscale/* /etc/tailscale/
+else
+    cp -r /build/tailscale/tailscaled.conf /etc/tailscale/tailscaled.conf
+    mkinitcpio-tailscale-setup -t --ssh -H nas-zbm -k /tmp/zbm-ts-authkey
+    cp -r /etc/tailscale/* /build/tailscale/
+fi
